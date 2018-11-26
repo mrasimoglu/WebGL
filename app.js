@@ -1,69 +1,41 @@
 var gl;
+var program;
 var test;
 
 var InitDemo = function() 
 {
-    loadTextResource('/shader.vs.glsl', function(vsErr, vsText)
-    {
-        if(vsErr)
-        {
-            alert('Fatal error getting vertex shader (see console)');
+    loadTextResource('shader.vs.glsl').catch((err)=>{
+			alert('Fatal error getting vertex shader (see console)');
             console.error(vsErr);
-        }
-        else
-        {
-            loadTextResource('/shader.fs.glsl', function(fsErr, fsText)
-            {
-                if(fsErr)
-                {
-                    alert('Fatal error getting fragment shader (see console)');
-                    console.error(fsErr);
-                }
-                else
-                {
-					var modelTexts = ["/cube.json", "sphere.json"];
-					var imageTexts = ["/cube_tex.jpeg"];
-					
-					var modelObjects = [];
-					var images = [];
+    }).then((vsText)=>{
+    	loadTextResource('shader.fs.glsl').catch((err)=> {
+    		alert('Fatal error getting fragment shader (see console)');
+            console.error(fsErr);
+    	}).then((fsText)=>{
+			var modelTexts = ["cube.json"];
+			var imageTexts = ["/cube_tex.jpeg"];
 
-					modelTexts.forEach(function(element)
-					{
-						loadJSONResource(element, function(modelErr, modelObj)
-						{
-							if(modelErr)
-							{
-								alert('Fatal error getting model (see console)');
-								console.error(modelErr);
-							}
-							else
-								modelObjects.push(modelObj);
-						});
-					});
-
-					imageTexts.forEach(function(element)
-					{
-						loadImage(element, function(imgErr, img)
-						{
-							if(imgErr)
-							{
-								alert('Fatal error getting texture (see console)');
-								console.error(imgErr);
-							}
-							else
-								images.push(img);
-						});
-					});
-
+			var promises = [];
+			modelTexts.forEach(function(element)
+			{
+				promises.push(loadJSONResource(element));
+			});
+			Promise.all(promises).then((res) => {
+				modelObjects = res;
+				var promises2 = [];
+				imageTexts.forEach((element)=>{
+					promises2.push(element);
+				});
+				Promise.all(promises2).then((res)=>{
+					images = res;
 					RunDemo(vsText, fsText, images, modelObjects);
-                }
-            });
-        }
-    });
+				});
+			});
+		});		
+	}); 
 }
 
-var RunDemo = function(vertexShaderText, fragmentShaderText, Images, Models)
-{
+var RunDemo = function (vertexShaderText, fragmentShaderText, Images, Models) {
 	var canvas = document.getElementById('game-surface');
 	gl = canvas.getContext('webgl');
 
@@ -104,7 +76,7 @@ var RunDemo = function(vertexShaderText, fragmentShaderText, Images, Models)
 		return;
 	}
 
-	var program = gl.createProgram();
+	program = gl.createProgram();
 	gl.attachShader(program, vertexShader);
 	gl.attachShader(program, fragmentShader);
 	gl.linkProgram(program);
@@ -118,20 +90,56 @@ var RunDemo = function(vertexShaderText, fragmentShaderText, Images, Models)
 		return;
 	}
 
+	// Tell OpenGL state machine which program should be active.
+	gl.useProgram(program);
+
 	//
-	// Create buffer
+	// Create texture
 	//
-	var Vertices;
-	var Indices;
-	var TexCoords;
-	Models.forEach(function(element)
+	Images.forEach(function(img)
 	{
-		Vertices = element.meshes[0].vertices;
-		Indices.push([].concat.apply([], element.meshes[0].faces));
-		TexCoords = element.meshes[0].texturecoords[0];
+		var Texture = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D, Texture);
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texImage2D(
+			gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
+			gl.UNSIGNED_BYTE,
+			img
+		);
+		gl.bindTexture(gl.TEXTURE_2D, null);
 	});
 
 	//
+	// Main render loop
+	//
+	var loop = function () {
+		gl.clearColor(0.75, 0.85, 0.8, 1.0);
+		gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
+
+		Models.forEach(function(modelElements)
+		{
+			modelElements.meshes.forEach(function(meshElement)
+			{
+				gl.activeTexture(gl.TEXTURE0);
+				drawMesh(meshElement);
+			});
+		});
+
+		requestAnimationFrame(loop);
+	};
+
+	requestAnimationFrame(loop);
+}
+
+var drawMesh = function(mesh)
+{
+	var Vertices = mesh.vertices;
+	var Indices = [].concat.apply([], mesh.faces);
+	var TexCoords = mesh.texturecoords[0];
 
 	var PosVertexBufferObject = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, PosVertexBufferObject);
@@ -149,6 +157,10 @@ var RunDemo = function(vertexShaderText, fragmentShaderText, Images, Models)
 	);
 	gl.enableVertexAttribArray(positionAttribLocation);
 
+	var TexCoordVertexBufferObject = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordVertexBufferObject);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(TexCoords), gl.STATIC_DRAW);
+
 	var IndexBufferObject = gl.createBuffer();
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, IndexBufferObject);
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(Indices), gl.STATIC_DRAW);
@@ -165,74 +177,5 @@ var RunDemo = function(vertexShaderText, fragmentShaderText, Images, Models)
 	);
 	gl.enableVertexAttribArray(texCoordAttribLocation);
 
-	var TexCoordVertexBufferObject = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordVertexBufferObject);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(TexCoords), gl.STATIC_DRAW);
-
-	//
-	// Create texture
-	//
-	/*var Texture = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, Texture);
-	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	
-	Images.forEach(function(element)
-	{
-		gl.texImage2D(
-			gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
-			gl.UNSIGNED_BYTE,
-			element
-		);
-	});
-	
-	gl.bindTexture(gl.TEXTURE_2D, null);*/
-
-	// Tell OpenGL state machine which program should be active.
-	gl.useProgram(program);
-
-	var matWorldUniformLocation = gl.getUniformLocation(program, 'mWorld');
-	var matViewUniformLocation = gl.getUniformLocation(program, 'mView');
-	var matProjUniformLocation = gl.getUniformLocation(program, 'mProj');
-
-	var worldMatrix = new Float32Array(16);
-	var viewMatrix = new Float32Array(16);
-	var projMatrix = new Float32Array(16);
-	mat4.identity(worldMatrix);
-	mat4.lookAt(viewMatrix, [0, 0, -8], [0, 0, 0], [0, 1, 0]);
-	mat4.perspective(projMatrix, glMatrix.toRadian(45), canvas.width / canvas.height, 0.1, 1000.0);
-
-	gl.uniformMatrix4fv(matWorldUniformLocation, gl.FALSE, worldMatrix);
-	gl.uniformMatrix4fv(matViewUniformLocation, gl.FALSE, viewMatrix);
-	gl.uniformMatrix4fv(matProjUniformLocation, gl.FALSE, projMatrix);
-
-	var xRotationMatrix = new Float32Array(16);
-	var yRotationMatrix = new Float32Array(16);
-
-	//
-	// Main render loop
-	//
-	var identityMatrix = new Float32Array(16);
-	mat4.identity(identityMatrix);
-	var angle = 0;
-	var loop = function () {
-		angle = performance.now() / 1000 / 6 * 2 * Math.PI;
-		mat4.rotate(yRotationMatrix, identityMatrix, angle, [0, 1, 0]);
-		mat4.rotate(xRotationMatrix, identityMatrix, angle / 4, [1, 0, 0]);
-		mat4.mul(worldMatrix, yRotationMatrix, xRotationMatrix);
-		gl.uniformMatrix4fv(matWorldUniformLocation, gl.FALSE, worldMatrix);
-
-		gl.clearColor(0.75, 0.85, 0.8, 1.0);
-		gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
-
-		gl.bindTexture(gl.TEXTURE_2D, Texture);
-		gl.activeTexture(gl.TEXTURE0);
-		gl.drawElements(gl.TRIANGLES, susanIndices.length, gl.UNSIGNED_SHORT, 0);
-
-		requestAnimationFrame(loop);
-	};
-	requestAnimationFrame(loop);
+	gl.drawElements(gl.TRIANGLES, Indices.length, gl.UNSIGNED_SHORT, 0);
 }

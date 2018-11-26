@@ -1,40 +1,36 @@
-var loadTextResource = function(url, callback)
+var loadTextResource = function(url)
 {
+    return new Promise((resolve, reject) => { 
+
     var request = new XMLHttpRequest();
     request.open('GET', url, true);
     request.onload = function() {
         if(request.status < 200 || request.status > 299)
-            callback('Error: HTTP status ' + request.status + ' on source ' + url);
+            reject('Error: HTTP status ' + request.status + ' on source ' + url);
         else
-            callback(null, request.responseText);
+            resolve(request.responseText);
     };
     request.send();
+    } );
+    
 };
 
-var loadImage = function (url, callback) {
-	var image = new Image();
-	image.onload = function () {
-		callback(null, image);
-	};
-	image.src = url;
+var loadImage = function (url) {
+    return new Promise((resolve, reject) => { 
+        var image = new Image();
+        image.onload = function () {
+            resolve(image);
+        };
+        image.src = url;
+    });
 };
 
-var loadJSONResource = function (url, callback)
-{
-    loadTextResource(url, function(err, result)
-    {
-        if(err)
-            callback(err);
-        else
-        {
-            try
-            {
-                callback(null, JSON.parse(result));
-            }
-            catch(e)
-            {
-                callback(e);
-            }
-        }
+var loadJSONResource = (url) => { 
+    return new Promise((resolve, reject) => {
+        loadTextResource(url).then((r)=> {
+            resolve(JSON.parse(r));
+        }).catch((err) => {
+            reject(err);
+        }); 
     });
 };
