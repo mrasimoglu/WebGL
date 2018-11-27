@@ -24,7 +24,7 @@ var InitDemo = function()
 				modelObjects = res;
 				var promises2 = [];
 				imageTexts.forEach((element)=>{
-					promises2.push(element);
+					promises2.push(loadImage(element));
 				});
 				Promise.all(promises2).then((res)=>{
 					images = res;
@@ -96,22 +96,19 @@ var RunDemo = function (vertexShaderText, fragmentShaderText, Images, Models) {
 	//
 	// Create texture
 	//
-	Images.forEach(function(img)
-	{
-		var Texture = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, Texture);
-		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		gl.texImage2D(
-			gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
-			gl.UNSIGNED_BYTE,
-			img
-		);
-		gl.bindTexture(gl.TEXTURE_2D, null);
-	});
+	var Texture = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, Texture);
+	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	gl.texImage2D(
+		gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
+		gl.UNSIGNED_BYTE,
+		Images[0]
+	);
+	gl.bindTexture(gl.TEXTURE_2D, null);
 
 	//
 	// Main render loop
@@ -124,6 +121,7 @@ var RunDemo = function (vertexShaderText, fragmentShaderText, Images, Models) {
 		{
 			modelElements.meshes.forEach(function(meshElement)
 			{
+				gl.bindTexture(gl.TEXTURE_2D, Texture);
 				gl.activeTexture(gl.TEXTURE0);
 				drawMesh(meshElement);
 			});
@@ -177,5 +175,6 @@ var drawMesh = function(mesh)
 	);
 	gl.enableVertexAttribArray(texCoordAttribLocation);
 
+	gl.activeTexture(gl.TEXTURE0);
 	gl.drawElements(gl.TRIANGLES, Indices.length, gl.UNSIGNED_SHORT, 0);
 }
