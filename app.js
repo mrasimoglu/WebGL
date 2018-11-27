@@ -110,6 +110,7 @@ var RunDemo = function (vertexShaderText, fragmentShaderText, Images, Models) {
 	);
 	gl.bindTexture(gl.TEXTURE_2D, null);
 
+	test = Texture;
 	//
 	// Main render loop
 	//
@@ -174,7 +175,6 @@ var drawMesh = function(mesh)
 		0
 	);
 	gl.enableVertexAttribArray(texCoordAttribLocation);
-
-	gl.activeTexture(gl.TEXTURE0);
+	
 	gl.drawElements(gl.TRIANGLES, Indices.length, gl.UNSIGNED_SHORT, 0);
 }
