@@ -12,7 +12,7 @@ var InitDemo = function()
     		alert('Fatal error getting fragment shader (see console)');
             console.error(fsErr);
     	}).then((fsText)=>{
-			var modelTexts = ["cube.json"];
+			var modelTexts = ["test.json"];
 			var imageTexts = ["/cube_tex.jpeg"];
 
 			var promises = [];
